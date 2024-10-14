@@ -1,5 +1,6 @@
 import cv2
 import numpy as np
+import os
 
 def preprocess_image(image):
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -114,30 +115,28 @@ class ImageViewer:
     
     def update_view(self):
         height, width = self.original_image.shape[:2]
-        new_width = int(width * self.zoom_factor)
-        new_height = int(height * self.zoom_factor)
+        
+        # 팝업 윈도우 크기
+        window_height, window_width = 600, 800  # 예시로 고정된 윈도우 크기 사용
+        
+        # 가로세로 비율 유지
+        aspect_ratio = width / height
+        
+        if window_width / window_height > aspect_ratio:
+            new_width = int(window_height * aspect_ratio)
+            new_height = window_height
+        else:
+            new_width = window_width
+            new_height = int(window_width / aspect_ratio)
         
         zoomed = cv2.resize(self.original_image, (new_width, new_height), interpolation=cv2.INTER_LINEAR)
         
-        canvas = np.zeros((600, 800, 3), dtype=np.uint8)
+        canvas = np.zeros((window_height, window_width, 3), dtype=np.uint8)
         
-        start_x = int(max(0, min(new_width - 800, self.offset_x * self.zoom_factor)))
-        start_y = int(max(0, min(new_height - 600, self.offset_y * self.zoom_factor)))
+        start_x = (window_width - new_width) // 2
+        start_y = (window_height - new_height) // 2
         
-        end_x = min(start_x + 800, new_width)
-        end_y = min(start_y + 600, new_height)
-        
-        canvas_x = 0
-        canvas_y = 0
-        
-        if start_x < 0:
-            canvas_x = -start_x
-            start_x = 0
-        if start_y < 0:
-            canvas_y = -start_y
-            start_y = 0
-        
-        canvas[canvas_y:canvas_y+end_y-start_y, canvas_x:canvas_x+end_x-start_x] = zoomed[start_y:end_y, start_x:end_x]
+        canvas[start_y:start_y + new_height, start_x:start_x + new_width] = zoomed
         
         cv2.imshow(self.window_name, canvas)
 
@@ -162,18 +161,30 @@ class ImageViewer:
         else:
             print("content_boundary가 설정되지 않았습니다.")
 
+def process_images_in_folder(folder_path, suffix, output_folder):
+    # 결과물 저장 폴더가 없으면 생성
+    if not os.path.exists(output_folder):
+        os.makedirs(output_folder)
+
+    for filename in os.listdir(folder_path):
+        if filename.endswith('.jpeg') or filename.endswith('.jpg'):
+            image_path = os.path.join(folder_path, filename)
+            save_path = os.path.join(output_folder, f"{os.path.splitext(filename)[0]}_{suffix}.jpeg")
+            page_boundary, content_boundary = detect_boundaries(image_path)
+
+            if page_boundary is not None and content_boundary is not None:
+                image = cv2.imread(image_path)
+                cv2.drawContours(image, [page_boundary.astype(int)], 0, (0, 255, 0), 2)
+                cv2.drawContours(image, [content_boundary.astype(int)], 0, (0, 0, 255), 2)
+
+                viewer = ImageViewer('Document Boundaries', image, save_path)  # save_path 전달
+                viewer.content_boundary = content_boundary  # content_boundary 설정
+                viewer.run()
+            else:
+                print(f"{filename} 경계를 찾을 수 없습니다.")
+
 # 사용 예
-image_path = 'Preprocessed/output_images/page_1.jpeg'
-save_path = 'Preprocessed/output_images/cropped_page_1.jpeg'
-page_boundary, content_boundary = detect_boundaries(image_path)
-
-if page_boundary is not None and content_boundary is not None:
-    image = cv2.imread(image_path)
-    cv2.drawContours(image, [page_boundary.astype(int)], 0, (0, 255, 0), 2)
-    cv2.drawContours(image, [content_boundary.astype(int)], 0, (0, 0, 255), 2)
-
-    viewer = ImageViewer('Document Boundaries', image, save_path)  # save_path 전달
-    viewer.content_boundary = content_boundary  # content_boundary 설정
-    viewer.run()
-else:
-    print("경계를 찾을 수 없습니다.")
+folder_path = 'Preprocessed/output_images/'  # 이미지가 있는 폴더 경로
+output_folder = 'Preprocessed/cropped_images/'  # 결과물을 저장할 폴더 경로
+suffix = 'cropped'  # 결과물에 붙일 접미사
+process_images_in_folder(folder_path, suffix, output_folder)

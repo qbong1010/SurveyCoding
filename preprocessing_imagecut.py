@@ -66,7 +66,7 @@ def process_pdf_images(pdf_path, output_folder, dpi=300):
 
 # 사용 예시
 if __name__ == "__main__":
-    pdf_path = r"C:\Users\dohwa\Desktop\MyPlugin\SurveyCoding\Completed\진건읍_test.pdf"
-    output_folder = r"C:\Users\dohwa\Desktop\MyPlugin\SurveyCoding\Preprocessed\output_images"
+    pdf_path = r"Completed\진건읍_test.pdf"
+    output_folder = r"Preprocessed\output_images"
     
     process_pdf_images(pdf_path, output_folder)
